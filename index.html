@@ -6,209 +6,680 @@
     <title>Explorador Interactivo de Estilos de Liderazgo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Harmony (Warm Neutrals with Muted Blue Accent) -->
+    <!-- Application Structure Plan: La aplicación está estructurada como un panel de control de una sola página con navegación por pestañas. Esto permite al usuario cambiar dinámicamente entre las vistas de cada estilo de liderazgo (Transaccional, Transformacional, Integral, y el nuevo Liderazgo Cuántico) y una vista de "Comparativa", además del "Simulador de Escenarios" y "Referencias". Esta arquitectura fue elegida para facilitar la comparación directa y el aprendizaje contextual, en lugar de un largo desplazamiento lineal. Cada vista de estilo organiza el contenido en tarjetas (Definición, Características, Ventajas/Desventajas, etc.) para una digestión rápida. La vista "Comparativa" utiliza un gráfico de radar para una comparación visual instantánea. El flujo de usuario está diseñado para ser exploratorio, invitando al usuario a descubrir y contrastar la información a su propio ritmo. Se ha integrado el nuevo estilo de "Liderazgo Cuántico" con su propia sección detallada. -->
+    <!-- Visualization & Content Choices: La información del informe se ha sintetizado en varios componentes: 1) Tarjetas de contenido (HTML/Tailwind) para organizar texto denso en fragmentos digeribles con iconos (Unicode) para una rápida referencia visual. 2) Listas de pros y contras en dos columnas para una comparación directa. 3) Un gráfico de radar (Chart.js/Canvas) como pieza central de la comparación. Los datos para el gráfico y el contenido se almacenan en objetos JS. Se ha añadido un campo de texto y un botón que, al ser activado, llama a la API de Gemini (gemini-2.0-flash) para generar un análisis textual de un escenario de liderazgo proporcionado por el usuario. La nueva sección de Liderazgo Cuántico sigue la misma estructura detallada de definición, características clave y ejemplos. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; color: #343a40;}
-        .nav-button { transition: all 0.3s ease;}
-        .nav-button.active { background-color: #0c4a6e; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);}
-        .content-section { display: none; animation: fadeIn 0.5s;}
-        .content-section.active { display: block;}
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);}}
-        .chart-container { position: relative; margin: auto; height: 50vh; width: 100%; max-width: 600px;}
-        .advantage-card { background-color: #f0fdf4; border-left: 4px solid #16a34a;}
-        .disadvantage-card { background-color: #fff1f2; border-left: 4px solid #e11d48;}
-        .icon { font-size: 1.5rem; line-height: 1;}
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa; 
+            color: #343a40;
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+        }
+        .nav-button.active {
+            background-color: #0c4a6e; /* sky-800 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .content-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 50vh;
+            width: 100%;
+            max-width: 600px;
+        }
+        .advantage-card { background-color: #f0fdf4; border-left: 4px solid #16a34a; }
+        .disadvantage-card { background-color: #fff1f2; border-left: 4px solid #e11d48; }
+        .icon {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
     </style>
 </head>
 <body class="bg-stone-50 text-slate-800">
-<div class="container mx-auto p-4 sm:p-6 md:p-8">
-<header class="text-center mb-8">
-    <h1 class="text-4xl md:text-5xl font-bold text-sky-900">Explorador de Estilos de Liderazgo</h1>
-    <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">Una herramienta interactiva para comprender y comparar los modelos de liderazgo Transaccional, Transformacional, Integral y el nuevo Liderazgo Cuántico.</p>
-</header>
-<nav class="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8">
-    <button id="nav-comparativa" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">Comparativa Visual</button>
-    <button id="nav-transaccional" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Transaccional</button>
-    <button id="nav-transformacional" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Transformacional</button>
-    <button id="nav-integral" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Integral</button>
-    <button id="nav-cuantico" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Cuántico ✨</button>
-    <button id="nav-referencias" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">Referencias</button>
-</nav>
-<main>
-<!-- Todas las secciones completas van aquí, código omitido por tamaño para la demo de zip -->
-<section id="comparativa-content" class="content-section">
-    <div class="bg-white p-6 rounded-xl shadow-lg">
-        <h2 class="text-3xl font-bold text-center text-sky-800 mb-2">Análisis Comparativo</h2>
-        <p class="text-center text-slate-600 mb-6">Este gráfico de radar compara los tres estilos de liderazgo (Transaccional, Transformacional, Integral). Interactúa con las etiquetas para explorar sus fortalezas y debilidades relativas.</p>
-        <div class="chart-container">
-            <canvas id="comparisonChart"></canvas>
-        </div>
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-sky-900">Explorador de Estilos de Liderazgo</h1>
+            <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">Una herramienta interactiva para comprender y comparar los modelos de liderazgo Transaccional, Transformacional, Integral y el nuevo Liderazgo Cuántico.</p>
+        </header>
+
+        <nav class="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8">
+            <button id="nav-comparativa" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">Comparativa Visual</button>
+            <button id="nav-transaccional" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Transaccional</button>
+            <button id="nav-transformacional" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Transformacional</button>
+            <button id="nav-integral" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Integral</button>
+            <button id="nav-cuantico" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">L. Cuántico ✨</button>
+            <button id="nav-simulador" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">Simulador de Escenarios ✨</button>
+            <button id="nav-referencias" class="nav-button font-semibold py-2 px-4 rounded-lg bg-white shadow-sm hover:bg-sky-100">Referencias</button>
+        </nav>
+
+        <main>
+            <!-- Vista Comparativa -->
+            <section id="comparativa-content" class="content-section">
+                 <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-3xl font-bold text-center text-sky-800 mb-2">Análisis Comparativo</h2>
+                    <p class="text-center text-slate-600 mb-6">Este gráfico de radar compara los tres estilos de liderazgo (Transaccional, Transformacional, Integral). Interactúa con las etiquetas para explorar sus fortalezas y debilidades relativas.</p>
+                    <div class="chart-container">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vista Transaccional -->
+            <section id="transaccional-content" class="content-section">
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-3xl font-bold text-sky-800">Liderazgo Transaccional</h2>
+                        <p class="mt-2 text-slate-600">Este estilo se basa en un intercambio claro entre el líder y los miembros del equipo. Se enfoca en la supervisión, la organización y el rendimiento. El líder establece metas y utiliza un sistema de recompensas y castigos para motivar a los empleados.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Características Clave y Aplicación</h3>
+                        <div class="grid md:grid-cols-2 gap-6">
+                           <div>
+                                <h4 class="font-bold text-lg mb-2">Componentes Principales</h4>
+                                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                    <li><b>Recompensa Contingente:</b> Ofrecer premios por el buen rendimiento.</li>
+                                    <li><b>Administración por Excepción (Activa):</b> Monitoreo activo para prevenir errores.</li>
+                                    <li><b>Administración por Excepción (Pasiva):</b> Intervención solo cuando surgen problemas.</li>
+                                </ul>
+                           </div>
+                           <div>
+                               <h4 class="font-bold text-lg mb-2">Ideal para:</h4>
+                               <ul class="list-disc list-inside space-y-1 text-slate-600">
+                                   <li>Situaciones de crisis o emergencia.</li>
+                                   <li>Proyectos con plazos estrictos.</li>
+                                   <li>Entornos altamente regulados (ej. manufactura, finanzas).</li>
+                                   <li>Equipos que requieren supervisión directa.</li>
+                               </ul>
+                           </div>
+                        </div>
+                         <p class="mt-4 text-slate-600">El líder transaccional se enfoca en el cumplimiento de tareas y la eficiencia mediante la supervisión y el control. Elimina la incertidumbre al precisar las funciones, lo que facilita el seguimiento del desempeño y la evaluación de resultados. La relación entre líder y empleado es un intercambio contractual y tiende a ser impersonal, centrada en el trabajo y las recompensas externas (bonificaciones, aumentos salariales, reconocimientos públicos) para impulsar el desempeño.</p>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="advantage-card p-6 rounded-lg">
+                            <h3 class="text-2xl font-semibold text-emerald-800 mb-3">Ventajas Clave</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Resultados Rápidos:</span> Muy eficaz para alcanzar objetivos a corto plazo.</li>
+                                <li><span class="font-bold">Claridad:</span> Roles y expectativas bien definidos, minimizando la ambigüedad.</li>
+                                <li><span class="font-bold">Eficiencia:</span> Ideal para entornos estructurados y tareas repetitivas.</li>
+                                <li><span class="font-bold">Motivación Extrínseca:</span> Las recompensas claras pueden aumentar la productividad en tareas específicas.</li>
+                            </ul>
+                        </div>
+                        <div class="disadvantage-card p-6 rounded-lg">
+                             <h3 class="text-2xl font-semibold text-rose-800 mb-3">Desventajas Clave</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Limita la Creatividad:</span> El enfoque en normas y recompensas no fomenta la innovación.</li>
+                                <li><span class="font-bold">Relaciones Impersonales:</span> La conexión se limita al intercambio laboral.</li>
+                                <li><span class="font-bold">Enfoque a Corto Plazo:</span> Puede descuidar la visión y el desarrollo a largo plazo.</li>
+                                <li><span class="font-bold">Rigidez:</span> Poca flexibilidad para adaptarse a cambios inesperados.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Ejemplos en la Minería Chilena</h3>
+                        <ul class="list-disc list-inside space-y-3 text-slate-700">
+                            <li><b>Seguridad y Operaciones en Minera Escondida:</b> Un supervisor de turno en Minera Escondida (Antofagasta) establece métricas diarias de producción y seguridad (ej., toneladas de cobre extraídas, cero incidentes con tiempo perdido). Los trabajadores que cumplen o superan estas metas reciben bonificaciones por rendimiento y seguridad, mientras que las infracciones graves a los protocolos de seguridad conllevan sanciones disciplinarias o suspensiones. La supervisión es constante para asegurar el cumplimiento.</li>
+                            <li><b>Proyectos con Plazos Fijos en Chuquicamata:</b> El gerente de un proyecto de expansión o modernización en la división Chuquicamata de Codelco establece hitos y plazos estrictos para la finalización de fases clave (ej., instalación de nueva maquinaria, construcción de infraestructura). Los equipos de ingeniería y construcción reciben incentivos económicos por completar cada hito a tiempo y dentro del presupuesto, y se aplican penalizaciones contractuales por retrasos o desviaciones del plan original.</li>
+                            <li><b>Mantenimiento Predictivo en Collahuasi:</b> El jefe de mantenimiento de flota en Compañía Minera Doña Inés de Collahuasi implementa un sistema de incentivos donde los técnicos son recompensados por la implementación exitosa de programas de mantenimiento predictivo, que resultan en una reducción significativa de fallas inesperadas de equipos críticos y minimizan el tiempo de inactividad. Los equipos reciben bonos trimestrales basados en la disponibilidad de la flota y la efectividad de sus intervenciones.</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Vista Transformacional -->
+            <section id="transformacional-content" class="content-section">
+                <div class="space-y-6">
+                     <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-3xl font-bold text-sky-800">Liderazgo Transformacional</h2>
+                        <p class="mt-2 text-slate-600">Este estilo se enfoca en inspirar y motivar a los empleados para que superen sus propios intereses y se comprometan con una visión compartida. El líder actúa como un modelo a seguir, fomentando la innovación y el desarrollo personal.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-center text-sky-800 mb-4">Características Clave: Las "4 I's" del Liderazgo Transformacional</h3>
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">✨</p>
+                                <h4 class="font-bold text-lg mt-2">Influencia Idealizada</h4>
+                                <p class="text-sm text-slate-600">Actuar como un modelo a seguir (carisma), generando respeto y confianza.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">💡</p>
+                                <h4 class="font-bold text-lg mt-2">Motivación Inspiradora</h4>
+                                <p class="text-sm text-slate-600">Articular una visión que inspira pasión y un sentido de propósito.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">🧠</p>
+                                <h4 class="font-bold text-lg mt-2">Estimulación Intelectual</h4>
+                                <p class="text-sm text-slate-600">Fomentar la creatividad, el pensamiento crítico y desafiar el *status quo*.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">❤️</p>
+                                <h4 class="font-bold text-lg mt-2">Consideración Individualizada</h4>
+                                <p class="text-sm text-slate-600">Apoyar, asesorar y desarrollar a cada persona de manera personalizada.</p>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-slate-600">La característica clave del liderazgo transformacional es su capacidad de influir, inspirar y desarrollar a los seguidores para un cambio significativo y a largo plazo. Un líder transformacional es carismático, visionario y actúa como un agente de cambio, buscando transformar la cultura y el rendimiento organizacional. Se preocupa por el desarrollo personal y profesional de cada miembro, buscando involucrarlos en el proceso de decisión y organización de tareas.</p>
+                    </div>
+                     <div class="grid md:grid-cols-2 gap-6">
+                        <div class="advantage-card p-6 rounded-lg">
+                            <h3 class="text-2xl font-semibold text-emerald-800 mb-3">Impacto Positivo</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Alto Compromiso:</span> Fomenta una fuerte conexión emocional con la organización.</li>
+                                <li><span class="font-bold">Impulsa la Innovación:</span> Un entorno seguro para proponer nuevas ideas.</li>
+                                <li><span class="font-bold">Desarrollo de Talento:</span> Se enfoca en el crecimiento a largo plazo de los empleados.</li>
+                                <li><span class="font-bold">Mejora el Rendimiento:</span> Aumenta la motivación intrínseca y la productividad.</li>
+                            </ul>
+                        </div>
+                        <div class="disadvantage-card p-6 rounded-lg">
+                             <h3 class="text-2xl font-semibold text-rose-800 mb-3">Desafíos Potenciales</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Resultados a Largo Plazo:</span> La transformación requiere tiempo y puede no ser inmediata.</li>
+                                <li><span class="font-bold">Requiere Habilidad:</span> Depende en gran medida del carisma y la empatía del líder.</li>
+                                <li><span class="font-bold">Riesgo de Agotamiento:</span> Las altas expectativas pueden generar estrés si no se gestionan bien.</li>
+                                <li><span class="font-bold">No es Universal:</span> Puede ser menos efectivo en entornos que requieren estructura rígida.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Ejemplos en la Minería Chilena</h3>
+                        <ul class="list-disc list-inside space-y-3 text-slate-700">
+                            <li><b>Cultura de Seguridad Transformadora en Codelco:</b> El gerente general de una división de Codelco, tras un análisis de incidentes, no solo implementa nuevos protocolos, sino que impulsa una visión donde "la seguridad es un valor vital, no solo una norma". Inspira a todos los trabajadores a ser agentes de seguridad, promoviendo la identificación proactiva de riesgos, la experimentación con nuevas tecnologías de seguridad (ej., drones para inspección) y el empoderamiento para detener cualquier operación insegura, transformando la mentalidad de cumplimiento a compromiso profundo.</li>
+                            <li><b>Innovación en Procesos Mineros Sustentables:</b> El director de investigación y desarrollo de una minera privada en la Región de Tarapacá desafía a sus equipos a desarrollar nuevas tecnologías para reducir drásticamente el consumo de agua en el procesamiento de minerales. A través de la estimulación intelectual, fomenta la colaboración interdisciplinaria, organiza hackatones de innovación y otorga autonomía a los ingenieros para probar ideas disruptivas (ej., minería en seco), buscando no solo eficiencia sino una verdadera transformación ambiental de la industria.</li>
+                            <li><b>Desarrollo de Liderazgo Femenino en la Minería:</b> Una líder de recursos humanos en una importante compañía minera en la Región de Antofagasta lanza un programa de desarrollo de talento transformacional centrado en mujeres en roles operativos y de liderazgo. A través de mentorías individualizadas, capacitación especializada y la creación de redes de apoyo, inspira a las participantes a superar barreras, a articular sus visiones para una minería más inclusiva y a asumir roles de mayor responsabilidad, fomentando un cambio cultural profundo en la industria.</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Vista Integral -->
+            <section id="integral-content" class="content-section">
+                 <div class="space-y-6">
+                     <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-3xl font-bold text-sky-800">Liderazgo Integral</h2>
+                        <p class="mt-2 text-slate-600">Es un paradigma de liderazgo holístico que abarca todas las áreas de la interacción humana: internas, externas, individuales y colectivas. Se basa en valores, un propósito superior y el bienestar común, integrando de forma consciente otros estilos de liderazgo.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-center text-sky-800 mb-4">Características Clave: El Modelo "Cabeza, Corazón y Manos"</h3>
+                        <div class="grid md:grid-cols-3 gap-4 text-center">
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">🧠</p>
+                                <h4 class="font-bold text-lg mt-2">Cabeza (Estrategia)</h4>
+                                <p class="text-sm text-slate-600">Análisis, visión clara y pensamiento crítico para navegar la complejidad.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">❤️</p>
+                                <h4 class="font-bold text-lg mt-2">Corazón (Conexión)</h4>
+                                <p class="text-sm text-slate-600">Empatía, autenticidad y construcción de relaciones de confianza.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg">
+                                <p class="icon">🖐️</p>
+                                <h4 class="font-bold text-lg mt-2">Manos (Acción)</h4>
+                                <p class="text-sm text-slate-600">Convertir la visión y la estrategia en resultados tangibles y prácticos.</p>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-slate-600">El liderazgo integral se caracteriza por un enfoque consciente en la auto-conciencia del líder, las relaciones, la acción efectiva y el impacto sistémico, combinando diferentes enfoques de liderazgo según la situación. Prioriza el bienestar integral y el crecimiento continuo de cada individuo, fomenta relaciones auténticas y empatía, y se orienta por valores y un propósito trascendente que busca el bien común y la sostenibilidad.</p>
+                    </div>
+
+                     <div class="grid md:grid-cols-2 gap-6">
+                        <div class="advantage-card p-6 rounded-lg">
+                            <h3 class="text-2xl font-semibold text-emerald-800 mb-3">Beneficios Fundamentales</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Visión Holística:</span> Considera el impacto en todos los niveles (empleado, empresa, sociedad).</li>
+                                <li><span class="font-bold">Cultura Resiliente:</span> Fomenta la adaptabilidad, la inclusión y un propósito compartido.</li>
+                                <li><span class="font-bold">Bienestar Sostenible:</span> Prioriza la salud mental y el equilibrio vida-trabajo.</li>
+                                <li><span class="font-bold">Liderazgo Consciente:</span> Integra ética y valores en la toma de decisiones.</li>
+                            </ul>
+                        </div>
+                        <div class="disadvantage-card p-6 rounded-lg">
+                             <h3 class="text-2xl font-semibold text-rose-800 mb-3">Complejidad y Requisitos</h3>
+                            <ul class="space-y-2 text-slate-700">
+                                <li><span class="font-bold">Muy Exigente:</span> Requiere un alto nivel de autoconciencia y desarrollo personal del líder.</li>
+                                <li><span class="font-bold">Difícil de Medir:</span> El impacto en el "bien común" es menos tangible que las métricas de negocio.</li>
+                                <li><span class="font-bold">Implementación Compleja:</span> Requiere un cambio cultural profundo en toda la organización.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Ejemplos en la Minería Chilena</h3>
+                        <ul class="list-disc list-inside space-y-3 text-slate-700">
+                            <li><b>Gestión Holística de Proyectos en Minería (Región de Antofagasta):</b> El líder de un gran proyecto minero en el norte de Chile no solo se enfoca en cumplir con los objetivos de extracción y financieros (transaccional) e inspirar a los equipos de ingeniería (transformacional), sino que también implementa un enfoque integral. Esto implica gestionar activamente las relaciones con las comunidades locales, asegurar el cumplimiento de los más altos estándares ambientales, promover el bienestar psicosocial de los trabajadores, y alinear todas las decisiones con una visión de sostenibilidad a largo plazo para la región y el país.</li>
+                            <li><b>Codelco y la Integración de Valor Compartido:</b> Un director ejecutivo de una división de Codelco implementa un liderazgo integral al buscar un equilibrio entre la productividad minera y la generación de valor social y ambiental. Utiliza la "cabeza" para optimizar los procesos de extracción, el "corazón" para fomentar un ambiente laboral de confianza y apoyo mutuo entre los mineros, y las "manos" para ejecutar programas de desarrollo local con las comunidades cercanas a la mina, asegurando que las ganancias de la empresa contribuyan directamente al progreso de la región y a la mitigación del impacto ambiental.</li>
+                            <li><b>Líder de Seguridad y Salud Ocupacional con Enfoque Integral (Sierra Gorda):</b> En una operación minera como Sierra Gorda, un líder de Seguridad y Salud Ocupacional (SSO) con un enfoque integral no solo asegura el cumplimiento de las normativas (transaccional) y motiva a los trabajadores a adoptar comportamientos seguros (transformacional), sino que también se enfoca en el bienestar integral del empleado. Esto incluye el apoyo a la salud mental, programas de prevención de fatiga, promoción de hábitos saludables y la creación de un comité de bienestar donde los trabajadores son parte activa en el diseño de un ambiente de trabajo seguro y digno. Su liderazgo integra la eficiencia operativa con la responsabilidad humana y social.</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nueva Vista: Liderazgo Cuántico -->
+            <section id="cuantico-content" class="content-section">
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h2 class="text-3xl font-bold text-sky-800">Liderazgo Cuántico</h2>
+                        <p class="mt-2 text-slate-600">El **Liderazgo Cuántico** es un estilo de liderazgo dinámico y multidimensional que se define por la habilidad del líder para integrar y aplicar de manera fluida y consciente las fortalezas de los enfoques transaccional, transformacional e integral. Este líder opera bajo la premisa de la interconexión fundamental de todos los elementos organizacionales y humanos, trascendiendo las dicotomías para optimizar simultáneamente el rendimiento, la inspiración, el desarrollo personal y colectivo, y el impacto social y ambiental.</p>
+                        <p class="mt-2 text-slate-600">No se trata de una simple suma de estilos, sino de una **conciencia elevada** que permite al líder "colapsar la función de onda" del liderazgo en el estilo más efectivo para el momento y el contexto precisos. Prioriza el equilibrio entre la consecución de objetivos medibles, la inspiración de una visión compartida y la adhesión a un propósito ético y holístico que abarca el bienestar de todos los *stakeholders*. El líder Cuántico es un estratega consciente que cultiva tanto la eficiencia a corto plazo como la resiliencia y la innovación a largo plazo, siempre desde un arraigo en la autenticidad y el servicio al bien mayor.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Características Clave del Liderazgo Cuántico</h3>
+                        <div class="space-y-6">
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">1. Visión Sinergética y Multi-Temporal</h4>
+                                <p class="text-sm text-slate-600">El líder Cuántico posee una visión que integra objetivos ambiciosos a largo plazo (inspiración transformacional/integral) con metas claras y medibles a corto y medio plazo (eficiencia transaccional). Esta visión no es estática; es un ecosistema dinámico que se adapta y co-evoluciona con la organización y su entorno.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Establecer KPIs precisos y sistemas de recompensa claros para tareas específicas, al mismo tiempo que se inspira a la trascendencia y la contribución a un propósito mayor.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">2. Conciencia Holística y Auto-Regulación</h4>
+                                <p class="text-sm text-slate-600">El líder Cuántico tiene una profunda autoconciencia de sus propios estados internos (emociones, sesgos, fortalezas) y una comprensión de la interconexión entre el bienestar individual y el rendimiento colectivo (integral). Muestra una alta inteligencia emocional y una capacidad de auto-regulación para mantener la calma y la claridad bajo presión.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Practicar la reflexión, la empatía radical y la atención plena. Prioriza el bienestar psicosocial del equipo y modela un equilibrio saludable entre la vida laboral y personal.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">3. Inspiración Resonante y Propósito Trascendente</h4>
+                                <p class="text-sm text-slate-600">Va más allá de comunicar una visión; el líder Cuántico la *resonancia* en cada individuo, conectando el trabajo diario con un propósito más grande y significativo (transformacional/integral). Sus palabras y acciones encienden una motivación intrínseca que va más allá de las recompensas externas.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Narrar historias poderosas, vivir los valores organizacionales y facilitar que los miembros del equipo descubran su propio propósito dentro del ecosistema de la organización.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">4. Adaptabilidad Contextual (Cambio de "Frecuencia")</h4>
+                                <p class="text-sm text-slate-600">El líder Cuántico no se adhiere rígidamente a un solo estilo. Es capaz de "cambiar de frecuencia" y aplicar el enfoque de liderazgo más adecuado según las necesidades específicas de la situación, el equipo, el individuo y la tarea. Puede ser directivo y transaccional en una crisis, o altamente empoderador y transformacional para un proyecto de innovación.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Un diagnóstico constante del entorno, flexibilidad en la delegación, y la capacidad de ajustar expectativas y metodologías sobre la marcha.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">5. Cultivo de Ecosistemas de Co-creación</h4>
+                                <p class="text-sm text-slate-600">Fomenta activamente un entorno donde la innovación y la creatividad son la norma, no la excepción. Empodera a los equipos para que experimenten, aprendan de los errores y co-creen soluciones. Promueve la colaboración interfuncional y la diversidad de pensamiento como fuentes de fortaleza.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Delegar autoridad con confianza, crear espacios seguros para la experimentación, celebrar tanto los éxitos como los aprendizajes de los fracasos, y facilitar la autonomía creativa.</p>
+                            </div>
+                            <div class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+                                <h4 class="font-bold text-lg mb-2 text-sky-700">6. Responsabilidad Integral y Sostenibilidad</h4>
+                                <p class="text-sm text-slate-600">El líder Cuántico toma decisiones considerando no solo las ganancias económicas, sino también el impacto social, ambiental y ético a largo plazo de la organización (integral). Su liderazgo contribuye a la construcción de un futuro más equitativo y sostenible.</p>
+                                <p class="text-sm text-slate-600 mt-1">**Implica:** Integrar la sostenibilidad en la estrategia de negocio, asegurar prácticas éticas en toda la cadena de valor y medir el éxito no solo por los beneficios, sino por la contribución positiva a la comunidad y al planeta.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-2xl font-semibold text-sky-800 mb-4">Ejemplos Prácticos del Liderazgo Cuántico</h3>
+                        <ul class="list-disc list-inside space-y-3 text-slate-700">
+                            <li><b>En una Empresa de Tecnología Global (Ej: "TechSolutions Innova"):</b> El CEO de TechSolutions Innova, una empresa global de desarrollo de software, necesita lanzar una actualización crítica de su producto principal en un plazo muy ajustado, al mismo tiempo que fomenta una cultura de innovación continua y asegura el bienestar de sus equipos, distribuidos en varias zonas horarias. El líder Cuántico establece métricas de rendimiento claras y diarias para los equipos (Transaccional) mientras comunica una visión inspiradora sobre cómo esta actualización revolucionará la experiencia del usuario (Transformacional). Simultáneamente, implementa "días de bienestar mental" obligatorios y destina parte de las ganancias del lanzamiento a programas de educación STEM en comunidades desfavorecidas (Integral).</li>
+                            <li><b>En una Organización de Salud Comunitaria (Ej: "Clínica Esperanza"):</b> La directora de la Clínica Esperanza, que atiende a poblaciones vulnerables, optimiza los flujos de trabajo de vacunación con objetivos diarios (Transaccional), a la vez que comparte historias de éxito de pacientes para inspirar al personal (Transformacional). Introduce programas de mindfulness para reducir el estrés del personal y establece alianzas con organizaciones locales para abordar las causas profundas de las enfermedades (Integral).</li>
+                            <li><b>En una Empresa de Manufactura Sostenible (Ej: "Eco-Producción Chile"):</b> El gerente de operaciones de Eco-Producción Chile implementa un sistema de incentivos por volumen de producción y reducción de residuos (Transaccional). Anima a los ingenieros y operarios a "reimaginar" los procesos de reciclaje, lanzando desafíos internos de innovación (Transformacional). Prioriza la seguridad y el bienestar de los trabajadores, invirtiendo en ergonomía y colaborando activamente con ONG ambientales para minimizar el impacto de la fábrica (Integral).</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nueva Vista: Simulador de Escenarios -->
+            <section id="simulador-content" class="content-section">
+                <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                    <h2 class="text-3xl font-bold text-sky-800 text-center">Simulador de Escenarios de Liderazgo ✨</h2>
+                    <p class="text-slate-600 text-center max-w-2xl mx-auto">Describe un escenario de liderazgo específico y la IA te proporcionará un análisis detallado sobre cómo los diferentes estilos de liderazgo (Transaccional, Transformacional e Integral) abordarían esa situación.</p>
+                    
+                    <div>
+                        <label for="scenarioInput" class="block text-lg font-semibold text-slate-700 mb-2">Ingresa tu escenario aquí:</label>
+                        <textarea id="scenarioInput" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent transition duration-200" rows="6" placeholder="Ejemplo: 'Gestionar un equipo remoto desmotivado durante un período de reestructuración.'"></textarea>
+                    </div>
+
+                    <button id="generateScenarioBtn" class="w-full bg-sky-700 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-sky-800 transition duration-300 ease-in-out transform hover:scale-105">
+                        Generar Análisis ✨
+                    </button>
+
+                    <div id="loadingIndicator" class="hidden text-center text-sky-700 font-semibold flex items-center justify-center p-4">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-sky-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Analizando el escenario...
+                    </div>
+
+                    <div id="scenarioOutput" class="mt-8 p-6 bg-sky-50 rounded-xl border border-sky-200">
+                        <h3 class="text-2xl font-bold text-sky-800 mb-4">Resultados del Análisis:</h3>
+                        <div id="outputContent" class="text-slate-700 space-y-6">
+                            <p class="text-center text-slate-500">El análisis del escenario aparecerá aquí.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Nueva Vista: Referencias -->
+            <section id="referencias-content" class="content-section">
+                <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                    <h2 class="text-3xl font-bold text-sky-800 text-center">Referencias</h2>
+                    <p class="text-slate-600 text-center max-w-2xl mx-auto">Fuentes de información utilizadas para compilar el contenido de esta aplicación.</p>
+                    <div class="text-slate-700">
+                        <ol class="list-decimal list-inside space-y-2">
+                            <li>Bass, B. M. (1985). *Leadership and performance beyond expectations*. Free Press.</li>
+                            <li>Bass, B. M., & Avolio, B. J. (1994). *Improving Organizational Effectiveness Through Transformational Leadership*. Sage Publications.</li>
+                            <li>Bass, B. M., & Riggio, R. E. (2006). *Transformational Leadership* (2nd ed.). Lawrence Erlbaum Associates.</li>
+                            <li>Burns, J. M. (1978). *Leadership*. Harper & Row.</li>
+                            <li>Centro de Estudios de Liderazgo (s.f.). *Liderazgo transaccional*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Chala, A. P. (2020). *El liderazgo integral como estrategia de innovación en las organizaciones del siglo XXI*. Repositorio Institucional UNIMINUTO.</li>
+                            <li>Chávez, G. (s.f.). *Liderazgo transaccional: ¿Qué es, cómo funciona y ejemplos?*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Claros, R., & García, D. (2018). *El liderazgo transformacional y su influencia en el desempeño laboral*. Universidad Militar Nueva Granada.</li>
+                            <li>Cruz, A. (2019). *Liderazgo Transformacional*. Universidad del Valle de México.</li>
+                            <li>Fundación CVX (s.f.). *Liderazgo transformacional: las 4 claves para inspirar a tu equipo*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>García, J. (2020). *Liderazgo transaccional*. Blog Economipedia. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>González, A. (2021). *Los líderes integrales en el futuro de las organizaciones*. Observatorio de Liderazgo de PwC.</li>
+                            <li>González, P. A., & Rengifo, C. A. (2019). *Liderazgo transformacional y su relación con la eficacia organizacional*. Universidad Cooperativa de Colombia.</li>
+                            <li>Harvard Business Review (2022). *The Transformational Leader's Impact on Employee Satisfaction*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Ibarra, E. L. (2021). *Liderazgo transformacional en el Ejército Ecuatoriano*. Repositorio Universidad de las Fuerzas Armadas ESPE.</li>
+                            <li>Infante, S. L. (2021). *El liderazgo transaccional y su relación con el desempeño laboral*. Tesis de Grado.</li>
+                            <li>Kotter, J. P. (1996). *Leading Change*. Harvard Business Review Press.</li>
+                            <li>Lussier, R. N., & Achua, C. F. (2015). *Leadership: Theory, Application, & Skill Development* (6th ed.). Cengage Learning.</li>
+                            <li>Mendoza, E. (2022). *Liderazgo transformacional*. Blog de Recursos Humanos.</li>
+                            <li>Northouse, P. G. (2018). *Leadership: Theory and Practice* (8th ed.). Sage Publications.</li>
+                            <li>Pérez, M. (2018). *Liderazgo transaccional: ventajas, desventajas y ejemplos*. Revista Forbes México.</li>
+                            <li>Prieto, I. (2020). *Liderazgo transformacional: Características y ejemplos*. Blog de Coaching y Liderazgo.</li>
+                            <li>Rodríguez, J. (2019). *Liderazgo integral: Un enfoque para el bienestar y la sostenibilidad*. Revista Latinoamericana de Liderazgo.</li>
+                            <li>Romero, C. A. (2023). *Las 4 Es del liderazgo integral*. Blog de Gestión Empresarial.</li>
+                            <li>Silva, J. (2022). *El liderazgo transaccional en la gestión de proyectos*. Blog Project Management.</li>
+                            <li>Solarte, G., & Palacios, S. (2020). *Liderazgo Transformacional y Cultura Organizacional*. Universidad Mariana.</li>
+                            <li>Sport Business Institute (2023). *Liderazgo transformacional en el deporte*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>The Wall Street Journal (2023). *Joe Biden's Leadership Style*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Torres, A. (2021). *Impacto del liderazgo transformacional en la innovación*. Revista de Negocios y Liderazgo.</li>
+                            <li>Universidad de Alicante (s.f.). *Liderazgo transformacional*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Villalobos, A. (2017). *El liderazgo en el ámbito militar*. Revista de Estudios Militares.</li>
+                            <li>Warrick, D. D. (2017). *The Transformational Leadership Questionnaire (TLQ)*. Journal of Business Studies Quarterly.</li>
+                            <li>World Economic Forum (2022). *Líderes transformacionales que están cambiando el mundo*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                            <li>Zappos Insights (s.f.). *Cultura de empresa y liderazgo*. Recuperado de https://www.linguee.com/spanish-english/translation/si+est%C3%A1+disponible.html</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
-</section>
-<!-- ... resto de secciones ... -->
-<section id="transaccional-content" class="content-section">
-    <div class="bg-white p-6 rounded-xl shadow-lg">
-    <h2 class="text-3xl font-bold text-sky-800">Liderazgo Transaccional</h2>
-    <p class="mt-2 text-slate-600">Este estilo se basa en un intercambio claro entre el líder y los miembros del equipo. Se enfoca en la supervisión, la organización y el rendimiento...</p>
-    <!-- ... resto de contenido ... -->
-    </div>
-</section>
-<!-- ... y así para todas las pestañas ... -->
-</main>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const leadershipData = {
-        labels: ['Enfoque en Tareas', 'Enfoque en Personas', 'Horizonte a Corto Plazo', 'Horizonte a Largo Plazo', 'Fomento a la Innovación', 'Flexibilidad y Adaptabilidad'],
-        transaccional: {
-            name: 'Transaccional',
-            values: [9, 2, 9, 2, 1, 3],
-            borderColor: 'rgba(225, 29, 72, 1)',
-            backgroundColor: 'rgba(225, 29, 72, 0.2)',
-        },
-        transformacional: {
-            name: 'Transformacional',
-            values: [6, 9, 4, 9, 9, 8],
-            borderColor: 'rgba(2, 132, 199, 1)',
-            backgroundColor: 'rgba(2, 132, 199, 0.2)',
-        },
-        integral: {
-            name: 'Integral',
-            values: [8, 10, 6, 10, 10, 10],
-            borderColor: 'rgba(22, 163, 74, 1)',
-            backgroundColor: 'rgba(22, 163, 74, 0.2)',
-        }
-    };
 
-    const navButtons = {
-        comparativa: document.getElementById('nav-comparativa'),
-        transaccional: document.getElementById('nav-transaccional'),
-        transformacional: document.getElementById('nav-transformacional'),
-        integral: document.getElementById('nav-integral'),
-        cuantico: document.getElementById('nav-cuantico'),
-        referencias: document.getElementById('nav-referencias'),
-    };
-
-    const contentSections = {
-        comparativa: document.getElementById('comparativa-content'),
-        transaccional: document.getElementById('transaccional-content'),
-        transformacional: document.getElementById('transformacional-content'),
-        integral: document.getElementById('integral-content'),
-        cuantico: document.getElementById('cuantico-content'),
-        referencias: document.getElementById('referencias-content'),
-    };
-    
-    let chart;
-
-    function createComparisonChart() {
-        const ctx = document.getElementById('comparisonChart').getContext('2d');
-        if (chart) {
-            chart.destroy();
-        }
-        chart = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: leadershipData.labels,
-                datasets: [
-                    {
-                        label: leadershipData.transaccional.name,
-                        data: leadershipData.transaccional.values,
-                        borderColor: leadershipData.transaccional.borderColor,
-                        backgroundColor: leadershipData.transaccional.backgroundColor,
-                        borderWidth: 2,
-                        pointBackgroundColor: leadershipData.transaccional.borderColor,
-                        pointRadius: 4,
-                    },
-                    {
-                        label: leadershipData.transformacional.name,
-                        data: leadershipData.transformacional.values,
-                        borderColor: leadershipData.transformacional.borderColor,
-                        backgroundColor: leadershipData.transformacional.backgroundColor,
-                        borderWidth: 2,
-                        pointBackgroundColor: leadershipData.transformacional.borderColor,
-                        pointRadius: 4,
-                    },
-                     {
-                        label: leadershipData.integral.name,
-                        data: leadershipData.integral.values,
-                        borderColor: leadershipData.integral.borderColor,
-                        backgroundColor: leadershipData.integral.backgroundColor,
-                        borderWidth: 2,
-                        pointBackgroundColor: leadershipData.integral.borderColor,
-                        pointRadius: 4,
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 10,
-                        grid: { color: 'rgba(0, 0, 0, 0.1)' },
-                        angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
-                        pointLabels: {
-                            font: {
-                                size: 12,
-                                weight: '500'
-                            },
-                            color: '#475569'
-                        },
-                        ticks: {
-                           display: false,
-                           stepSize: 2
-                        }
-                    }
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const leadershipData = {
+                labels: ['Enfoque en Tareas', 'Enfoque en Personas', 'Horizonte a Corto Plazo', 'Horizonte a Largo Plazo', 'Fomento a la Innovación', 'Flexibilidad y Adaptabilidad'],
+                transaccional: {
+                    name: 'Transaccional',
+                    values: [9, 2, 9, 2, 1, 3],
+                    borderColor: 'rgba(225, 29, 72, 1)', // rose-600
+                    backgroundColor: 'rgba(225, 29, 72, 0.2)',
                 },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            font: { size: 14 }
-                        }
+                transformacional: {
+                    name: 'Transformacional',
+                    values: [6, 9, 4, 9, 9, 8],
+                    borderColor: 'rgba(2, 132, 199, 1)', // sky-600
+                    backgroundColor: 'rgba(2, 132, 199, 0.2)',
+                },
+                integral: {
+                    name: 'Integral',
+                    values: [8, 10, 6, 10, 10, 10],
+                    borderColor: 'rgba(22, 163, 74, 1)', // emerald-600
+                    backgroundColor: 'rgba(22, 163, 74, 0.2)',
+                }
+            };
+
+            const navButtons = {
+                comparativa: document.getElementById('nav-comparativa'),
+                transaccional: document.getElementById('nav-transaccional'),
+                transformacional: document.getElementById('nav-transformacional'),
+                integral: document.getElementById('nav-integral'),
+                cuantico: document.getElementById('nav-cuantico'), // Nuevo botón para Liderazgo Cuántico
+                simulador: document.getElementById('nav-simulador'),
+                referencias: document.getElementById('nav-referencias'),
+            };
+
+            const contentSections = {
+                comparativa: document.getElementById('comparativa-content'),
+                transaccional: document.getElementById('transaccional-content'),
+                transformacional: document.getElementById('transformacional-content'),
+                integral: document.getElementById('integral-content'),
+                cuantico: document.getElementById('cuantico-content'), // Nueva sección para Liderazgo Cuántico
+                simulador: document.getElementById('simulador-content'),
+                referencias: document.getElementById('referencias-content'),
+            };
+            
+            let chart;
+
+            function createComparisonChart() {
+                const ctx = document.getElementById('comparisonChart').getContext('2d');
+                if (chart) {
+                    chart.destroy();
+                }
+                chart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: leadershipData.labels,
+                        datasets: [
+                            {
+                                label: leadershipData.transaccional.name,
+                                data: leadershipData.transaccional.values,
+                                borderColor: leadershipData.transaccional.borderColor,
+                                backgroundColor: leadershipData.transaccional.backgroundColor,
+                                borderWidth: 2,
+                                pointBackgroundColor: leadershipData.transaccional.borderColor,
+                                pointRadius: 4,
+                            },
+                            {
+                                label: leadershipData.transformacional.name,
+                                data: leadershipData.transformacional.values,
+                                borderColor: leadershipData.transformacional.borderColor,
+                                backgroundColor: leadershipData.transformacional.backgroundColor,
+                                borderWidth: 2,
+                                pointBackgroundColor: leadershipData.transformacional.borderColor,
+                                pointRadius: 4,
+                            },
+                             {
+                                label: leadershipData.integral.name,
+                                data: leadershipData.integral.values,
+                                borderColor: leadershipData.integral.borderColor,
+                                backgroundColor: leadershipData.integral.backgroundColor,
+                                borderWidth: 2,
+                                pointBackgroundColor: leadershipData.integral.borderColor,
+                                pointRadius: 4,
+                            }
+                        ]
                     },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 10,
+                                grid: { color: 'rgba(0, 0, 0, 0.1)' },
+                                angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
+                                pointLabels: {
+                                    font: {
+                                        size: 12,
+                                        weight: '500'
+                                    },
+                                    color: '#475569' // slate-600
+                                },
+                                ticks: {
+                                   display: false,
+                                   stepSize: 2
                                 }
-                                if (context.parsed.r !== null) {
-                                    label += context.parsed.r;
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    font: { size: 14 }
                                 }
-                                return label;
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.r !== null) {
+                                            label += context.parsed.r;
+                                        }
+                                        return label;
+                                    }
+                                }
                             }
                         }
                     }
+                });
+            }
+
+            function switchView(viewName) {
+                Object.values(navButtons).forEach(button => button.classList.remove('active'));
+                Object.values(contentSections).forEach(section => section.classList.remove('active'));
+
+                if (navButtons[viewName] && contentSections[viewName]) {
+                    navButtons[viewName].classList.add('active');
+                    contentSections[viewName].classList.add('active');
+                }
+
+                if (viewName === 'comparativa' && !chart) {
+                    createComparisonChart();
                 }
             }
-        });
-    }
 
-    function switchView(viewName) {
-        Object.values(navButtons).forEach(button => button.classList.remove('active'));
-        Object.values(contentSections).forEach(section => section.classList.remove('active'));
-
-        if (navButtons[viewName] && contentSections[viewName]) {
-            navButtons[viewName].classList.add('active');
-            contentSections[viewName].classList.add('active');
-        }
-
-        if (viewName === 'comparativa' && !chart) {
+            Object.keys(navButtons).forEach(key => {
+                navButtons[key].addEventListener('click', () => switchView(key));
+            });
+            
+            // Initial view
+            switchView('comparativa');
             createComparisonChart();
-        }
-    }
 
-    Object.keys(navButtons).forEach(key => {
-        navButtons[key].addEventListener('click', () => switchView(key));
-    });
-    
-    // Initial view
-    switchView('comparativa');
-    createComparisonChart();
-});
-</script>
+            // LLM Integration for Scenario Simulator
+            const scenarioInput = document.getElementById('scenarioInput');
+            const generateScenarioBtn = document.getElementById('generateScenarioBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const scenarioOutput = document.getElementById('scenarioOutput');
+            const outputContent = document.getElementById('outputContent');
+
+            generateScenarioBtn.addEventListener('click', async () => {
+                const promptText = scenarioInput.value.trim();
+                if (!promptText) {
+                    outputContent.innerHTML = '<p class="text-red-500 text-center">Por favor, ingresa un escenario para analizar.</p>';
+                    return;
+                }
+
+                loadingIndicator.classList.remove('hidden');
+                outputContent.innerHTML = ''; 
+                scenarioOutput.classList.remove('p-6', 'bg-sky-50', 'rounded-xl', 'border', 'border-sky-200'); // Hide initial placeholder styling
+
+                try {
+                    let chatHistory = [];
+                    const prompt = `Analiza el siguiente escenario de liderazgo y describe cómo cada uno de los siguientes estilos de liderazgo lo abordaría: Transaccional, Transformacional, e Integral. Para cada estilo, detalla su enfoque general, sus fortalezas y sus debilidades en este contexto. La respuesta debe estar en español y en formato JSON siguiendo el esquema proporcionado. El escenario es: ${promptText}`;
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    
+                    const payload = {
+                        contents: chatHistory,
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "scenarioAnalysis": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "style": { "type": "STRING" },
+                                                "approach": { "type": "STRING" },
+                                                "strengths": {
+                                                    "type": "ARRAY",
+                                                    "items": { "type": "STRING" }
+                                                },
+                                                "weaknesses": {
+                                                    "type": "ARRAY",
+                                                    "items": { "type": "STRING" }
+                                                }
+                                            },
+                                            "propertyOrdering": ["style", "approach", "strengths", "weaknesses"]
+                                        }
+                                    }
+                                },
+                                "propertyOrdering": ["scenarioAnalysis"]
+                            }
+                        }
+                    };
+                    const apiKey = ""; 
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        
+                        const json = result.candidates[0].content.parts[0].text;
+                        const parsedJson = JSON.parse(json);
+                        const analysis = parsedJson.scenarioAnalysis;
+
+                        let htmlOutput = '<h3 class="text-2xl font-semibold text-sky-800 mb-4">Análisis Generado:</h3>';
+                        if (analysis && analysis.length > 0) {
+                             analysis.forEach(item => {
+                                htmlOutput += `
+                                    <div class="mb-6 p-4 rounded-lg bg-white shadow-sm border border-gray-200">
+                                        <h4 class="text-xl font-bold text-sky-700 mb-2">${item.style}</h4>
+                                        <p class="text-slate-700 mb-2"><strong>Enfoque:</strong> ${item.approach}</p>
+                                        <div class="grid md:grid-cols-2 gap-4">
+                                            <div>
+                                                <h5 class="font-semibold text-emerald-700">✅ Fortalezas:</h5>
+                                                <ul class="list-disc list-inside text-slate-600">
+                                                    ${item.strengths.map(s => `<li>${s}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                            <div>
+                                                <h5 class="font-semibold text-rose-700">❌ Debilidades:</h5>
+                                                <ul class="list-disc list-inside text-slate-600">
+                                                    ${item.weaknesses.map(w => `<li>${w}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            htmlOutput += '<p class="text-center text-slate-500">No se pudo generar un análisis detallado para este escenario.</p>';
+                        }
+                        outputContent.innerHTML = htmlOutput;
+                        scenarioOutput.classList.add('p-6', 'bg-sky-50', 'rounded-xl', 'border', 'border-sky-200'); // Re-apply styling
+                    } else {
+                        outputContent.innerHTML = '<p class="text-red-500 text-center">Error al procesar la respuesta de la IA. Inténtalo de nuevo.</p>';
+                    }
+                } catch (error) {
+                    console.error('Error al generar el análisis:', error);
+                    outputContent.innerHTML = '<p class="text-red-500 text-center">Ocurrió un error al conectar con la IA. Por favor, revisa tu conexión e inténtalo de nuevo.</p>';
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
